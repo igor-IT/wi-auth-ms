@@ -1,16 +1,13 @@
 package com.alibou.security.auth;
 
-import com.alibou.security.code.Code;
-import com.alibou.security.code.CodeRepository;
-import com.alibou.security.code.CodeSendEvent;
-import com.alibou.security.code.CodeStatus;
+import com.alibou.security.code.*;
 import com.alibou.security.config.JwtService;
 import com.alibou.security.exceptions.InvalidCodeException;
 import com.alibou.security.exceptions.PhoneNotFoundException;
 import com.alibou.security.exceptions.UserAlreadyExistException;
+import com.alibou.security.exceptions.UserNotExistException;
 import com.alibou.security.token.RefreshToken;
 import com.alibou.security.token.RefreshTokenRepository;
-import com.alibou.security.token.TokenRepository;
 import com.alibou.security.user.Role;
 import com.alibou.security.user.User;
 import com.alibou.security.user.UserRepository;
@@ -38,7 +35,6 @@ import static com.alibou.security.code.CodeStatus.VALIDATED;
 @RequiredArgsConstructor
 public class AuthenticationService {
 	private final UserRepository repository;
-	private final TokenRepository tokenRepository;
 	private final RefreshTokenRepository refreshTokenRepository;
 	private final CodeRepository codeRepository;
 	private final PasswordEncoder passwordEncoder;
@@ -48,7 +44,7 @@ public class AuthenticationService {
 
 	private void saveUserToken(User user, String jwtToken) {
 		var token = RefreshToken.builder()
-				.phone(user.getPhone())
+				.userId(user.getId())
 				.token(jwtToken)
 				.expiryDate(Instant.now().plusMillis(jwtService.getRefreshExpiration()))
 				.build();
@@ -66,10 +62,11 @@ public class AuthenticationService {
 		codeRepository.save(code);
 
 		var user = User.builder()
-				.firstname(request.getFirst_name())
-				.lastname(request.getLast_name())
+				.firstname(request.getFirstname())
+				.lastname(request.getLastname())
 				.phone(request.getPhone())
 				.password(passwordEncoder.encode(request.getPassword()))
+				.locale(request.getLocale())
 				.role(Role.USER)
 				.build();
 		repository.save(user);
@@ -101,16 +98,12 @@ public class AuthenticationService {
 				.build();
 	}
 
-
+	// TODO: Maybe should add "is expired" field to token ???
 	private void revokeAllUserTokens(User user) {
-		var validUserTokens = tokenRepository.findAllByUserIdAndExpiredFalseAndRevokedFalse((user.getId()));
+		var validUserTokens = refreshTokenRepository.findAllByUserId((user.getId()));
 		if (validUserTokens.isEmpty())
 			return;
-		validUserTokens.forEach(token -> {
-			token.setExpired(true);
-			token.setRevoked(true);
-		});
-		tokenRepository.saveAll(validUserTokens);
+		refreshTokenRepository.deleteAll(validUserTokens);
 	}
 
 	public void refreshToken(
@@ -146,14 +139,14 @@ public class AuthenticationService {
 		if (repository.existsByPhone(phone)) {
 			throw new UserAlreadyExistException();
 		}
-		var code = Code.builder()
-				.status(CodeStatus.CREATED)
-				.code(String.format("%04d", new Random().nextInt(10000)))
-				.phone(phone)
-				.date(new Date())
-				.build();
-		codeRepository.save(code);
-		streamBridge.send("code-topic", new CodeSendEvent(code.getCode(), request.getLocale()));
+		buildCode(phone, Type.REGISTRATION, request);
+	}
+	public void requestSMSByReset(SMSCodeRequest request) {
+		String phone = request.getPhone();
+		if (!repository.existsByPhone(phone)) {
+			throw new UserNotExistException();
+		}
+		buildCode(phone, Type.RESET_PASSWORD, request);
 	}
 
 	public void validateSMS(ValidateRequest request) {
@@ -163,10 +156,23 @@ public class AuthenticationService {
 						throw new InvalidCodeException();
 					}
 					code.setStatus(VALIDATED);
+					code.setType(request.getType());
 					return codeRepository.save(code);
 				})
 				.orElseThrow(PhoneNotFoundException::new);
 
 
+	}
+
+	private void buildCode(String phone, Type type, SMSCodeRequest request) {
+		var code = Code.builder()
+				.status(CodeStatus.CREATED)
+				.code(String.format("%04d", new Random().nextInt(10000)))
+				.phone(phone)
+				.type(type)
+				.date(new Date())
+				.build();
+		codeRepository.save(code);
+		streamBridge.send("code-topic", new CodeSendEvent(code.getCode(), request.getLocale()));
 	}
 }

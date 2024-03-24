@@ -26,10 +26,9 @@ public class User implements UserDetails {
   private String firstname;
   private String lastname;
   private String phone;
-  private String email;
   private String password;
-
   private Role role;
+  private Locale locale;
 
   @DBRef
   private List<Token> tokens;
@@ -46,7 +45,7 @@ public class User implements UserDetails {
 
   @Override
   public String getUsername() {
-    return phone;
+    return id;
   }
 
   @Override

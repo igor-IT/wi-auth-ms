@@ -1,7 +1,7 @@
 package com.alibou.security.auth;
 
 import com.alibou.security.user.Locale;
-import com.alibou.security.user.Role;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,10 +16,12 @@ public class RegisterRequest {
 
   @NotBlank
   @Size(min = 2, message= "First name must not be less than two characters")
-  private String first_name;
+  @JsonProperty("first_name")
+  private String firstname;
   @NotBlank
   @Size(min = 2, message= "Last name must not be less than two characters")
-  private String last_name;
+  @JsonProperty("last_name")
+  private String lastname;
   @NotBlank
   @Email
   private String email;
@@ -32,6 +34,7 @@ public class RegisterRequest {
 //  @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*\\W)(?!.* )",
 //          message = "Password must contain one digit, one lowercase letter, one uppercase letter")
   private String password;
-  private String media_photo_id;
+  @JsonProperty("media_photo_id")
+  private String mediaPhotoId;
   private Locale locale;
 }

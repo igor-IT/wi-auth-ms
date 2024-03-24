@@ -2,6 +2,8 @@ package com.alibou.security.config;
 
 import com.alibou.security.token.RefreshToken;
 import com.alibou.security.token.RefreshTokenRepository;
+import com.alibou.security.user.User;
+import com.alibou.security.user.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,17 +68,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			String refreshToken = request.getHeader("X-AUTH-REFRESH-TOKEN");
 			RefreshToken refreshTokenFromDb = refreshTokenRepository.findByToken(refreshToken).orElse(null);
 			if (refreshTokenFromDb != null && !jwtService.isTokenExpired(refreshTokenFromDb.getToken())) {
-				String userPhone = refreshTokenFromDb.getPhone();
-				UserDetails userDetails = this.userDetailsService.loadUserByUsername(userPhone);
+				String userId = jwtService.extractUserId(refreshTokenFromDb.getToken());
+				String userPhone = jwtService.extractPhone(refreshTokenFromDb.getToken());
+				User userDetails = (User) this.userDetailsService.loadUserByUsername(userPhone);
 				String newJwt = jwtService.generateToken(userDetails);
 				String newRefreshToken = jwtService.generateRefreshToken(userDetails);
 				response.setHeader("X-AUTH-ACCESS-TOKEN", newJwt);
 				response.setHeader("X-AUTH-REFRESH-TOKEN", newRefreshToken);
 				refreshTokenRepository.delete(refreshTokenFromDb);
-				//TODO: Add user_id to token
 				refreshTokenRepository.save(
 						RefreshToken.builder()
-								.phone(userPhone)
+								.userId(userId)
 								.token(newRefreshToken)
 								.expiryDate(Instant.now().plusMillis(jwtService.getRefreshExpiration()))
 								.build());

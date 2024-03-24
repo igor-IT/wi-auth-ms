@@ -1,5 +1,6 @@
 package com.alibou.security.code;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,6 +21,7 @@ public class Code {
 	private String code;
 	private CodeStatus status;
 	private String phone;
+	@JsonProperty("timestamp")
 	private Date date;
 	private Type type;
 }

@@ -1,5 +1,6 @@
 package com.alibou.security.config;
 
+import com.alibou.security.user.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
@@ -34,29 +35,37 @@ public class JwtService {
 	}
 
 	public String extractPhone(String token) {
-		return extractClaim(token, Claims::getSubject);
+		return extractClaims(token, Claims::getSubject);
 	}
 
-	public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
+	public <T> T extractClaims(String token, Function<Claims, T> claimsResolver) {
 		final Claims claims = extractAllClaims(token);
 		return claimsResolver.apply(claims);
 	}
 
-	public String generateToken(UserDetails userDetails) {
+	public String extractUserId(String token) {
+		return extractClaims(token, claims -> claims.get("id", String.class));
+	}
+
+	public String generateToken(User userDetails) {
 		return generateToken(new HashMap<>(), userDetails);
 	}
 
 	public String generateToken(
 			Map<String, Object> extraClaims,
-			UserDetails userDetails
+			User userDetails
 	) {
+		extraClaims.put("lang", userDetails.getLocale());
 		return buildToken(extraClaims, userDetails, jwtExpiration);
 	}
 
-	public String generateRefreshToken(
-			UserDetails userDetails
-	) {
-		return buildToken(new HashMap<>(), userDetails, refreshExpiration);
+	public String generateRefreshToken(User userDetails) {
+		return generateRefreshToken(userDetails, new HashMap<>());
+	}
+
+	public String generateRefreshToken(User userDetails, Map<String, Object> extraClaims) {
+		extraClaims.put("id", userDetails.getId());
+		return buildToken(extraClaims, userDetails, refreshExpiration);
 	}
 
 	private String buildToken(
@@ -92,7 +101,7 @@ public class JwtService {
 	}
 
 	private Date extractExpiration(String token) {
-		return extractClaim(token, Claims::getExpiration);
+		return extractClaims(token, Claims::getExpiration);
 	}
 
 	private Claims extractAllClaims(String token) {
