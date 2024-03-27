@@ -1,5 +1,6 @@
 package com.microservice.auth.config;
 
+import com.microservice.auth.user.UserRepository;
 import com.microservice.auth.user.Permission;
 import com.microservice.auth.user.Role;
 import lombok.RequiredArgsConstructor;
@@ -11,9 +12,18 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
+
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+import java.util.Set;
 
 import static org.springframework.http.HttpMethod.*;
 import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
@@ -38,6 +48,7 @@ public class SecurityConfiguration {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
     private final LogoutHandler logoutHandler;
+    private final UserRepository userRepository;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -62,8 +73,30 @@ public class SecurityConfiguration {
                                 .addLogoutHandler(logoutHandler)
                                 .logoutSuccessHandler((request, response, authentication) -> SecurityContextHolder.clearContext())
                 )
+                .oauth2Login(config -> config
+                        .defaultSuccessUrl("/api/v1/books")
+                        .userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService())))
         ;
-
         return http.build();
     }
+
+    private OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
+        return userRequest -> {
+            String email = userRequest.getIdToken().getEmail();
+
+            // TODO: create user
+            UserDetails userDetails = userRepository.findByEmail(email);
+            DefaultOidcUser oidcUser = new DefaultOidcUser(userDetails.getAuthorities(), userRequest.getIdToken());
+
+            Set<Method> userDetailsMethods = Set.of(UserDetails.class.getMethods());
+
+            return (OidcUser) Proxy.newProxyInstance(SecurityConfiguration.class.getClassLoader(),
+                    new Class[]{UserDetails.class, OidcUser.class},
+                    (proxy, method, args) -> userDetailsMethods.contains(method)
+                            ? method.invoke(userDetails, args)
+                            : method.invoke(oidcUser, args));
+        };
+    }
+
+
 }
