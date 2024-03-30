@@ -30,3 +30,20 @@ application:
       auto-offset-reset: earliest
     producer:
       acks: all
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"  # Exposes all actuator endpoints
+  endpoint:
+    metrics:
+      enabled: true  # Enables metrics endpoint
+  metrics:
+    distribution:
+      percentiles-histogram:
+        "[http.server.requests]": true  # Enables percentiles histogram for http server requests metric
+  prometheus:
+    metrics:
+      export:
+        enabled: true  # Enables Prometheus metrics export

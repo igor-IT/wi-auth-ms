@@ -1,8 +1,8 @@
 package com.microservice.auth.config;
 
-import com.microservice.auth.user.UserRepository;
 import com.microservice.auth.user.Permission;
 import com.microservice.auth.user.Role;
+import com.microservice.auth.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -44,7 +44,9 @@ public class SecurityConfiguration {
             "/configuration/security",
             "/swagger-ui/**",
             "/webjars/**",
-            "/swagger-ui.html"};
+            "/swagger-ui.html",
+            "/actuator/**",
+            "/actuator/metrics/**"};
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
     private final LogoutHandler logoutHandler;
