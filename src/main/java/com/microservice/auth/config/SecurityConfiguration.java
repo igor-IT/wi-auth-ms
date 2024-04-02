@@ -1,7 +1,6 @@
 package com.microservice.auth.config;
 
 import com.microservice.auth.user.Permission;
-import com.microservice.auth.user.Role;
 import com.microservice.auth.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -33,72 +32,71 @@ import static org.springframework.security.config.http.SessionCreationPolicy.STA
 @RequiredArgsConstructor
 @EnableMethodSecurity
 public class SecurityConfiguration {
+	private static final String[] WHITE_LIST_URL = {"/api/v1/auth/**",
+			"/v2/api-docs",
+			"/v3/api-docs",
+			"/v3/api-docs/**",
+			"/swagger-resources",
+			"/swagger-resources/**",
+			"/configuration/ui",
+			"/configuration/security",
+			"/swagger-ui/**",
+			"/webjars/**",
+			"/swagger-ui.html",
+			"/actuator/**",
+			"/actuator/metrics/**"};
+	private final JwtAuthenticationFilter jwtAuthFilter;
+	private final AuthenticationProvider authenticationProvider;
+	private final LogoutHandler logoutHandler;
+	private final UserRepository userRepository;
 
-    private static final String[] WHITE_LIST_URL = {"/api/v1/auth/**",
-            "/v2/api-docs",
-            "/v3/api-docs",
-            "/v3/api-docs/**",
-            "/swagger-resources",
-            "/swagger-resources/**",
-            "/configuration/ui",
-            "/configuration/security",
-            "/swagger-ui/**",
-            "/webjars/**",
-            "/swagger-ui.html",
-            "/actuator/**",
-            "/actuator/metrics/**"};
-    private final JwtAuthenticationFilter jwtAuthFilter;
-    private final AuthenticationProvider authenticationProvider;
-    private final LogoutHandler logoutHandler;
-    private final UserRepository userRepository;
+	@Bean
+	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		http
+				.csrf(AbstractHttpConfigurer::disable)
+				.authorizeHttpRequests(req ->
+						req.requestMatchers(WHITE_LIST_URL)
+								.permitAll()
+								.requestMatchers(GET, "/api/v1/management/**").hasAnyAuthority(Permission.ADMIN_READ.name(), Permission.MANAGER_READ.name())
+								.requestMatchers(POST, "/api/v1/management/**").hasAnyAuthority(Permission.ADMIN_CREATE.name(), Permission.MANAGER_CREATE.name())
+								.requestMatchers(PUT, "/api/v1/management/**").hasAnyAuthority(Permission.ADMIN_UPDATE.name(), Permission.MANAGER_UPDATE.name())
+								.requestMatchers(DELETE, "/api/v1/management/**").hasAnyAuthority(Permission.ADMIN_DELETE.name(), Permission.MANAGER_DELETE.name())
+								.anyRequest()
+								.authenticated()
+				)
+				.sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
+				.authenticationProvider(authenticationProvider)
+				.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+				.logout(logout ->
+						logout.logoutUrl("/api/v1/auth/logout")
+								.addLogoutHandler(logoutHandler)
+								.logoutSuccessHandler((request, response, authentication) -> SecurityContextHolder.clearContext())
+				)
+				.oauth2Login(config -> config
+						.defaultSuccessUrl("/api/v1/books")
+						.userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService())))
+		;
+		return http.build();
+	}
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(req ->
-                        req.requestMatchers(WHITE_LIST_URL)
-                                .permitAll()
-                                .requestMatchers("/api/v1/management/**").hasAnyRole(Role.ADMIN.name(), Role.MANAGER.name())
-                                .requestMatchers(GET, "/api/v1/management/**").hasAnyAuthority(Permission.ADMIN_READ.name(), Permission.MANAGER_READ.name())
-                                .requestMatchers(POST, "/api/v1/management/**").hasAnyAuthority(Permission.ADMIN_CREATE.name(), Permission.MANAGER_CREATE.name())
-                                .requestMatchers(PUT, "/api/v1/management/**").hasAnyAuthority(Permission.ADMIN_UPDATE.name(), Permission.MANAGER_UPDATE.name())
-                                .requestMatchers(DELETE, "/api/v1/management/**").hasAnyAuthority(Permission.ADMIN_DELETE.name(), Permission.MANAGER_DELETE.name())
-                                .anyRequest()
-                                .authenticated()
-                )
-                .sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
-                .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .logout(logout ->
-                        logout.logoutUrl("/api/v1/auth/logout")
-                                .addLogoutHandler(logoutHandler)
-                                .logoutSuccessHandler((request, response, authentication) -> SecurityContextHolder.clearContext())
-                )
-                .oauth2Login(config -> config
-                        .defaultSuccessUrl("/api/v1/books")
-                        .userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService())))
-        ;
-        return http.build();
-    }
 
-    private OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
-        return userRequest -> {
-            String email = userRequest.getIdToken().getEmail();
+	private OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
+		return userRequest -> {
+			String email = userRequest.getIdToken().getEmail();
 
-            // TODO: create user
-            UserDetails userDetails = userRepository.findByEmail(email);
-            DefaultOidcUser oidcUser = new DefaultOidcUser(userDetails.getAuthorities(), userRequest.getIdToken());
+			// TODO: create user
+			UserDetails userDetails = userRepository.findByEmail(email);
+			DefaultOidcUser oidcUser = new DefaultOidcUser(userDetails.getAuthorities(), userRequest.getIdToken());
 
-            Set<Method> userDetailsMethods = Set.of(UserDetails.class.getMethods());
+			Set<Method> userDetailsMethods = Set.of(UserDetails.class.getMethods());
 
-            return (OidcUser) Proxy.newProxyInstance(SecurityConfiguration.class.getClassLoader(),
-                    new Class[]{UserDetails.class, OidcUser.class},
-                    (proxy, method, args) -> userDetailsMethods.contains(method)
-                            ? method.invoke(userDetails, args)
-                            : method.invoke(oidcUser, args));
-        };
-    }
+			return (OidcUser) Proxy.newProxyInstance(SecurityConfiguration.class.getClassLoader(),
+					new Class[]{UserDetails.class, OidcUser.class},
+					(proxy, method, args) -> userDetailsMethods.contains(method)
+							? method.invoke(userDetails, args)
+							: method.invoke(oidcUser, args));
+		};
+	}
 
 
 }

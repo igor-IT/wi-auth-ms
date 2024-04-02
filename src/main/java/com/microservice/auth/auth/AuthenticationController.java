@@ -4,23 +4,26 @@ import com.microservice.auth.exceptions.TooManyRequestException;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.time.Duration;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthenticationController {
+	@Value("${application.security.jwt.access-token-header}")
+	private String accessTokenHeader;
+
+	@Value("${application.security.jwt.refresh-token-header}")
+	private String refreshTokenHeader;
 
 	private final AuthenticationService service;
 	private final Bucket bucket;
@@ -53,14 +56,6 @@ public class AuthenticationController {
 		return ResponseEntity.ok().headers(headers).build();
 	}
 
-	@PostMapping("/refresh-token")
-	public void refreshToken(
-			HttpServletRequest request,
-			HttpServletResponse response
-	) throws IOException {
-		service.refreshToken(request, response);
-	}
-
 
 	@PostMapping("/sign-up/by-phone/request-sms-code")
 	@ResponseStatus(HttpStatus.OK)
@@ -69,16 +64,17 @@ public class AuthenticationController {
 			service.requestSMS(request);
 
 		} else {
-			throw new TooManyRequestException();
+			throw new TooManyRequestException(request.getLocale());
 		}
 	}
+
 	@PostMapping("/reset-password/by-phone/request-sms-code")
 	@ResponseStatus(HttpStatus.OK)
 	public void resetPasswordRequest(@RequestBody SMSCodeRequest request) {
 		if (bucket.tryConsume(1)) {
 			service.requestSMSByReset(request);
 		} else {
-			throw new TooManyRequestException();
+			throw new TooManyRequestException(request.getLocale());
 		}
 	}
 
@@ -89,10 +85,11 @@ public class AuthenticationController {
 	}
 
 	@NotNull
-	private static HttpHeaders setHttpHeaders(AuthenticationResponse response) {
+	private HttpHeaders setHttpHeaders(AuthenticationResponse response) {
 		HttpHeaders headers = new HttpHeaders();
-		headers.add("X-AUTH-ACCESS-TOKEN", "Bearer " + response.getAccessToken());
-		headers.add("X-AUTH-REFRESH-TOKEN", response.getRefreshToken());
+		String bearer = "Bearer ";
+		headers.add(accessTokenHeader, bearer + response.getAccessToken());
+		headers.add(refreshTokenHeader, response.getRefreshToken());
 		return headers;
 	}
 

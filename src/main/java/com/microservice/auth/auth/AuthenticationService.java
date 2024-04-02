@@ -1,5 +1,6 @@
 package com.microservice.auth.auth;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microservice.auth.code.*;
 import com.microservice.auth.config.JwtService;
 import com.microservice.auth.exceptions.InvalidCodeException;
@@ -11,7 +12,6 @@ import com.microservice.auth.token.RefreshTokenRepository;
 import com.microservice.auth.user.Role;
 import com.microservice.auth.user.User;
 import com.microservice.auth.user.UserRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -24,9 +24,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Date;
-import java.util.Objects;
-import java.util.Random;
+import java.util.*;
 
 import static com.microservice.auth.code.CodeStatus.USED;
 import static com.microservice.auth.code.CodeStatus.VALIDATED;
@@ -53,9 +51,9 @@ public class AuthenticationService {
 
 	public AuthenticationResponse register(RegisterRequest request) {
 		Code code = codeRepository.findFirstByPhoneOrderByDateDesc(request.getPhone())
-				.orElseThrow(PhoneNotFoundException::new);
+				.orElseThrow(() -> new PhoneNotFoundException(request.getLocale()));
 		if (code.getStatus() != VALIDATED || !Objects.equals(request.getCode(), code.getCode())) {
-			throw new InvalidCodeException();
+			throw new InvalidCodeException(request.getLocale());
 		}
 		// TODO: ADD VALIDATION FOR PASSWORD
 		code.setStatus(USED);
@@ -68,7 +66,7 @@ public class AuthenticationService {
 				.phone(request.getPhone())
 				.password(passwordEncoder.encode(request.getPassword()))
 				.locale(request.getLocale())
-				.role(Role.USER)
+				.roles(new HashSet<>(List.of(Role.USER)))
 				.build();
 		repository.save(user);
 		var jwtToken = jwtService.generateToken(user);
@@ -92,7 +90,7 @@ public class AuthenticationService {
 		var jwtToken = jwtService.generateToken(user);
 		var refreshToken = jwtService.generateRefreshToken(user);
 		revokeAllUserTokens(user);
-		saveUserToken(user, jwtToken);
+		saveUserToken(user, refreshToken);
 		return AuthenticationResponse.builder()
 				.accessToken(jwtToken)
 				.refreshToken(refreshToken)
@@ -138,14 +136,15 @@ public class AuthenticationService {
 	public void requestSMS(SMSCodeRequest request) {
 		String phone = request.getPhone();
 		if (repository.existsByPhone(phone)) {
-			throw new UserAlreadyExistException();
+			throw new UserAlreadyExistException(request.getLocale());
 		}
 		buildCode(phone, Type.REGISTRATION, request);
 	}
+
 	public void requestSMSByReset(SMSCodeRequest request) {
 		String phone = request.getPhone();
 		if (!repository.existsByPhone(phone)) {
-			throw new UserNotExistException();
+			throw new UserNotExistException(request.getLocale());
 		}
 		buildCode(phone, Type.RESET_PASSWORD, request);
 	}
@@ -154,15 +153,13 @@ public class AuthenticationService {
 		codeRepository.findFirstByPhoneOrderByDateDesc(request.getPhone())
 				.map(code -> {
 					if (!Objects.equals(code.getCode(), request.getCode())) {
-						throw new InvalidCodeException();
+						throw new InvalidCodeException(request.getLocale());
 					}
 					code.setStatus(VALIDATED);
 					code.setType(request.getType());
 					return codeRepository.save(code);
 				})
-				.orElseThrow(PhoneNotFoundException::new);
-
-
+				.orElseThrow(() -> new PhoneNotFoundException(request.getLocale()));
 	}
 
 	private void buildCode(String phone, Type type, SMSCodeRequest request) {

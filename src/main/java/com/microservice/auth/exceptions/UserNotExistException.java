@@ -1,7 +1,9 @@
 package com.microservice.auth.exceptions;
 
-	public class UserNotExistException extends RuntimeException {
-		public UserNotExistException() {
-			super("User is not exist!");
-		}
+import com.microservice.auth.user.Locale;
+
+public class UserNotExistException extends BaseException {
+	public UserNotExistException(Locale locale) {
+		super(locale);
 	}
+}

@@ -1,7 +1,12 @@
 package com.microservice.auth.exceptions;
 
-public class PhoneNotFoundException extends RuntimeException{
-		public PhoneNotFoundException() {
-			super("Phone not found");
-		}
+import com.microservice.auth.user.Locale;
+import lombok.Getter;
+
+@Getter
+public class PhoneNotFoundException extends BaseException {
+
+	public PhoneNotFoundException(Locale locale) {
+		super(locale);
+	}
 }

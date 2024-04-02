@@ -1,6 +1,7 @@
 package com.microservice.auth.auth;
 
 import com.microservice.auth.code.Type;
+import com.microservice.auth.user.Locale;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
@@ -22,4 +23,6 @@ public class ValidateRequest {
 
 	@Pattern(regexp = "/\\d{4}/g")
 	private String code;
+
+	private Locale locale;
 }

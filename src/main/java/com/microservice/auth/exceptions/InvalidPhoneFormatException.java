@@ -1,8 +1,10 @@
 package com.microservice.auth.exceptions;
 
-public class InvalidPhoneFormatException extends RuntimeException {
+import com.microservice.auth.user.Locale;
 
-    public InvalidPhoneFormatException() {
-        super("INVALID_PHONE_FORMAT");
-    }
+public class InvalidPhoneFormatException extends BaseException {
+
+	public InvalidPhoneFormatException(Locale locale) {
+		super(locale);
+	}
 }

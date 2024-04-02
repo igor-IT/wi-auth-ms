@@ -1,7 +1,9 @@
 package com.microservice.auth.exceptions;
 
-public class TooManyRequestException extends RuntimeException{
-		public TooManyRequestException() {
-			super("Too many request!");
-		}
+import com.microservice.auth.user.Locale;
+
+public class TooManyRequestException extends BaseException {
+	public TooManyRequestException(Locale locale) {
+		super(locale);
+	}
 }

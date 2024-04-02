@@ -1,7 +1,9 @@
 package com.microservice.auth.exceptions;
 
-public class InvalidCodeException extends RuntimeException{
-		public InvalidCodeException() {
-			super("Code is not right");
-		}
+import com.microservice.auth.user.Locale;
+
+public class InvalidCodeException extends BaseException {
+	public InvalidCodeException(Locale locale) {
+		super(locale);
+	}
 }

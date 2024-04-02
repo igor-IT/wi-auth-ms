@@ -1,8 +1,10 @@
 package com.microservice.auth.exceptions;
 
-public class PhoneNumberTakenException extends RuntimeException {
+import com.microservice.auth.user.Locale;
 
-    public PhoneNumberTakenException() {
-        super("PHONE_NUMBER_TAKEN");
-    }
+public class PhoneNumberTakenException extends BaseException {
+
+	public PhoneNumberTakenException(Locale locale) {
+		super(locale);
+	}
 }
