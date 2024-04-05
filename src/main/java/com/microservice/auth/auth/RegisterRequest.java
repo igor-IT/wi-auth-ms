@@ -1,6 +1,7 @@
 package com.microservice.auth.auth;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.microservice.auth.user.AccountType;
 import com.microservice.auth.user.Locale;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -28,16 +29,14 @@ public class RegisterRequest {
   @NotBlank
   @Email
   private String email;
-  @NotBlank
   @Pattern(regexp = "^[+]?[(]?[0-9]{3}[)]?[-\\s.]?[0-9]{3}[-\\s.]?[0-9]{4,6}$")
   private String phone;
-  private String code;
   @NotBlank
   @Size(min = 8, message = "Password must be min 8 symbols")
-//  @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*\\W)(?!.* )",
-//          message = "Password must contain one digit, one lowercase letter, one uppercase letter")
   private String password;
   @JsonProperty("media_photo_id")
   private String mediaPhotoId;
   private Locale locale;
+  @NotBlank
+  private AccountType accountType;
 }

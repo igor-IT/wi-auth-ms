@@ -56,6 +56,7 @@ public class JwtService {
 			User userDetails
 	) {
 		extraClaims.put("lang", userDetails.getLocale());
+		extraClaims.put("roles", userDetails.getRoles());
 		return buildToken(extraClaims, userDetails, jwtExpiration);
 	}
 

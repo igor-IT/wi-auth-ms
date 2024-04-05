@@ -1,7 +1,7 @@
 package com.microservice.auth.config;
 
-import com.microservice.auth.user.Permission;
-import com.microservice.auth.user.UserRepository;
+import com.microservice.auth.auth.CustomAuthenticationSuccessHandler;
+import com.microservice.auth.user.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,15 +17,18 @@ import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutHandler;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.springframework.http.HttpMethod.*;
-import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
 
 @Configuration
 @EnableWebSecurity
@@ -49,6 +52,7 @@ public class SecurityConfiguration {
 	private final AuthenticationProvider authenticationProvider;
 	private final LogoutHandler logoutHandler;
 	private final UserRepository userRepository;
+	private final RoleRepository roleRepository;
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -64,7 +68,6 @@ public class SecurityConfiguration {
 								.anyRequest()
 								.authenticated()
 				)
-				.sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
 				.authenticationProvider(authenticationProvider)
 				.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
 				.logout(logout ->
@@ -73,30 +76,46 @@ public class SecurityConfiguration {
 								.logoutSuccessHandler((request, response, authentication) -> SecurityContextHolder.clearContext())
 				)
 				.oauth2Login(config -> config
-						.defaultSuccessUrl("/api/v1/books")
-						.userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService())))
+						.userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService()))
+						.successHandler(savedRequestAwareAuthenticationSuccessHandler())
+						.defaultSuccessUrl("/api/v1/books"))
 		;
 		return http.build();
 	}
 
+	@Bean
+	public SavedRequestAwareAuthenticationSuccessHandler savedRequestAwareAuthenticationSuccessHandler() {
+		return new CustomAuthenticationSuccessHandler();
+	}
 
 	private OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
 		return userRequest -> {
 			String email = userRequest.getIdToken().getEmail();
 
-			// TODO: create user
-			UserDetails userDetails = userRepository.findByEmail(email);
+			Optional<User> existingUser = userRepository.findByEmail(email);
+			UserDetails userDetails = existingUser.orElseGet(() -> {
+				Role role = roleRepository.findByName(RoleStatus.USER.name()).orElseThrow();
+				User newUser = User.builder()
+						.firstname(userRequest.getIdToken().getGivenName())
+						.lastname(userRequest.getIdToken().getFamilyName())
+						.email(email)
+						.locale(Locale.EN)
+						.roles(new HashSet<>(List.of(role)))
+						.accountType(AccountType.USUAL)
+						.build();
+				return userRepository.save(newUser);
+			});
+
 			DefaultOidcUser oidcUser = new DefaultOidcUser(userDetails.getAuthorities(), userRequest.getIdToken());
 
 			Set<Method> userDetailsMethods = Set.of(UserDetails.class.getMethods());
-
-			return (OidcUser) Proxy.newProxyInstance(SecurityConfiguration.class.getClassLoader(),
+			return (OidcUser) Proxy.newProxyInstance(
+					SecurityConfiguration.class.getClassLoader(),
 					new Class[]{UserDetails.class, OidcUser.class},
 					(proxy, method, args) -> userDetailsMethods.contains(method)
 							? method.invoke(userDetails, args)
-							: method.invoke(oidcUser, args));
+							: method.invoke(oidcUser, args)
+			);
 		};
 	}
-
-
 }

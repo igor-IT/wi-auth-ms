@@ -78,6 +78,18 @@ public class AuthenticationController {
 		}
 	}
 
+	@PostMapping("/reset-password/by-phone/create-password")
+	@ResponseStatus(HttpStatus.OK)
+	public ResponseEntity<AuthenticationResponse> createPassword(@RequestBody CreatePasswordRequest request) {
+		if (bucket.tryConsume(1)) {
+			AuthenticationResponse response = service.createPassword(request);
+			HttpHeaders headers = setHttpHeaders(response);
+			return ResponseEntity.ok().headers(headers).build();
+		} else {
+			throw new TooManyRequestException(request.getLocale());
+		}
+	}
+
 	@PostMapping("/validate-sms-code")
 	@ResponseStatus(HttpStatus.OK)
 	public void validateSMS(@RequestBody ValidateRequest request) {

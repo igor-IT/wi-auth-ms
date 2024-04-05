@@ -12,10 +12,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class SMSCodeRequest {
+public class CreatePasswordRequest {
 	@NotBlank
 	@Pattern(regexp = "^[+]?[(]?[0-9]{3}[)]?[-\\s.]?[0-9]{3}[-\\s.]?[0-9]{4,6}$\n")
 	private String phone;
+	private String password;
+	private String code;
 	private Locale locale;
-	private String type;
 }

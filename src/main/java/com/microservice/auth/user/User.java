@@ -1,6 +1,6 @@
 package com.microservice.auth.user;
 
-import com.microservice.auth.token.Token;
+import com.microservice.auth.token.RefreshToken;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,7 +12,6 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -31,11 +30,14 @@ public class User implements UserDetails {
 	private String email;
 	private String phone;
 	private String password;
-	private Set<Role> roles;
 	private Locale locale;
+	private AccountType accountType;
 
 	@DBRef
-	private List<Token> tokens;
+	private Set<Role> roles;
+
+	@DBRef
+	private List<RefreshToken> tokens;
 
 	public User addRole(Role role) {
 		this.roles.add(role);

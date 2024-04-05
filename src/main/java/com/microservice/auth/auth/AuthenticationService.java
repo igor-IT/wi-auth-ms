@@ -1,6 +1,5 @@
 package com.microservice.auth.auth;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microservice.auth.code.*;
 import com.microservice.auth.config.JwtService;
 import com.microservice.auth.exceptions.InvalidCodeException;
@@ -9,20 +8,15 @@ import com.microservice.auth.exceptions.UserAlreadyExistException;
 import com.microservice.auth.exceptions.UserNotExistException;
 import com.microservice.auth.token.RefreshToken;
 import com.microservice.auth.token.RefreshTokenRepository;
-import com.microservice.auth.user.Role;
-import com.microservice.auth.user.User;
-import com.microservice.auth.user.UserRepository;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import com.microservice.auth.user.Locale;
+import com.microservice.auth.user.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cloud.stream.function.StreamBridge;
-import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 
@@ -34,7 +28,9 @@ import static com.microservice.auth.code.CodeStatus.VALIDATED;
 public class AuthenticationService {
 	private final UserRepository repository;
 	private final RefreshTokenRepository refreshTokenRepository;
+	private final RoleRepository roleRepository;
 	private final CodeRepository codeRepository;
+	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 	private final AuthenticationManager authenticationManager;
@@ -50,15 +46,9 @@ public class AuthenticationService {
 	}
 
 	public AuthenticationResponse register(RegisterRequest request) {
-		Code code = codeRepository.findFirstByPhoneOrderByDateDesc(request.getPhone())
-				.orElseThrow(() -> new PhoneNotFoundException(request.getLocale()));
-		if (code.getStatus() != VALIDATED || !Objects.equals(request.getCode(), code.getCode())) {
-			throw new InvalidCodeException(request.getLocale());
-		}
-		// TODO: ADD VALIDATION FOR PASSWORD
-		code.setStatus(USED);
-		codeRepository.save(code);
+		validateCode(request.getPhone(), request.getLocale());
 
+		Role role = roleRepository.findByName(RoleStatus.USER.name()).orElseThrow();
 		var user = User.builder()
 				.firstname(request.getFirstname())
 				.lastname(request.getLastname())
@@ -66,16 +56,20 @@ public class AuthenticationService {
 				.phone(request.getPhone())
 				.password(passwordEncoder.encode(request.getPassword()))
 				.locale(request.getLocale())
-				.roles(new HashSet<>(List.of(Role.USER)))
+				.roles(new HashSet<>(List.of(role)))
+				.accountType(request.getAccountType())
 				.build();
 		repository.save(user);
-		var jwtToken = jwtService.generateToken(user);
-		var refreshToken = jwtService.generateRefreshToken(user);
-		saveUserToken(user, refreshToken);
-		return AuthenticationResponse.builder()
-				.accessToken(jwtToken)
-				.refreshToken(refreshToken)
-				.build();
+		return generateTokens(user);
+	}
+
+	public AuthenticationResponse createPassword(CreatePasswordRequest request) {
+		validateCode(request.getPhone(), request.getLocale());
+		var user = userRepository.findByPhone(request.getPhone())
+				.orElseThrow(() -> new UserNotExistException(request.getLocale()));
+		user.setPassword(passwordEncoder.encode(request.getPassword()));
+		repository.save(user);
+		return generateTokens(user);
 	}
 
 	public AuthenticationResponse authenticate(AuthenticationRequest request) {
@@ -97,56 +91,34 @@ public class AuthenticationService {
 				.build();
 	}
 
-	// TODO: Maybe should add "is expired" field to token ???
-	private void revokeAllUserTokens(User user) {
-		var validUserTokens = refreshTokenRepository.findAllByUserId((user.getId()));
-		if (validUserTokens.isEmpty())
-			return;
-		refreshTokenRepository.deleteAll(validUserTokens);
-	}
-
-	public void refreshToken(
-			HttpServletRequest request,
-			HttpServletResponse response
-	) throws IOException {
-		final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-		final String refreshToken;
-		final String userEmail;
-		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-			return;
-		}
-		refreshToken = authHeader.substring(7);
-		userEmail = jwtService.extractPhone(refreshToken);
-		if (userEmail != null) {
-			var user = this.repository.findByPhone(userEmail)
-					.orElseThrow();
-			if (jwtService.isTokenValid(refreshToken, user)) {
-				var accessToken = jwtService.generateToken(user);
-				revokeAllUserTokens(user);
-				saveUserToken(user, refreshToken);
-				var authResponse = AuthenticationResponse.builder()
-						.accessToken(accessToken)
-						.refreshToken(refreshToken)
-						.build();
-				new ObjectMapper().writeValue(response.getOutputStream(), authResponse);
-			}
-		}
+	public AuthenticationResponse authenticateWithOauth(String email) {
+		var user = repository.findByEmail(email).orElseThrow();
+		var jwtToken = jwtService.generateToken(user);
+		var refreshToken = jwtService.generateRefreshToken(user);
+		revokeAllUserTokens(user);
+		saveUserToken(user, refreshToken);
+		return AuthenticationResponse.builder()
+				.accessToken(jwtToken)
+				.refreshToken(refreshToken)
+				.build();
 	}
 
 	public void requestSMS(SMSCodeRequest request) {
 		String phone = request.getPhone();
 		if (repository.existsByPhone(phone)) {
 			throw new UserAlreadyExistException(request.getLocale());
+		} else {
+			buildCode(phone, Type.REGISTRATION, request);
 		}
-		buildCode(phone, Type.REGISTRATION, request);
 	}
 
 	public void requestSMSByReset(SMSCodeRequest request) {
 		String phone = request.getPhone();
 		if (!repository.existsByPhone(phone)) {
 			throw new UserNotExistException(request.getLocale());
+		} else {
+			buildCode(phone, Type.valueOf(request.getType()), request);
 		}
-		buildCode(phone, Type.RESET_PASSWORD, request);
 	}
 
 	public void validateSMS(ValidateRequest request) {
@@ -172,5 +144,31 @@ public class AuthenticationService {
 				.build();
 		codeRepository.save(code);
 		streamBridge.send("code-topic", new CodeSendEvent(code.getCode(), request.getLocale()));
+	}
+
+	private AuthenticationResponse generateTokens(User user) {
+		var jwtToken = jwtService.generateToken(user);
+		var refreshToken = jwtService.generateRefreshToken(user);
+		saveUserToken(user, refreshToken);
+		return AuthenticationResponse.builder()
+				.accessToken(jwtToken)
+				.refreshToken(refreshToken)
+				.build();
+	}
+
+	private void validateCode(String phone, Locale locale) {
+		Code code = codeRepository.findFirstByPhoneOrderByDateDesc(phone)
+				.orElseThrow(() -> new PhoneNotFoundException(locale));
+		if (code.getStatus() != VALIDATED) {
+			throw new InvalidCodeException(locale);
+		}
+		code.setStatus(USED);
+		codeRepository.save(code);
+	}
+	private void revokeAllUserTokens(User user) {
+		var validUserTokens = refreshTokenRepository.findAllByUserId((user.getId()));
+		if (validUserTokens.isEmpty())
+			return;
+		refreshTokenRepository.deleteAll(validUserTokens);
 	}
 }
