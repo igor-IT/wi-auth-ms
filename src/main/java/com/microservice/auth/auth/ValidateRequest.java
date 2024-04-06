@@ -14,15 +14,11 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ValidateRequest {
-	@NotBlank
-	@Pattern(regexp = "^[+]?[(]?[0-9]{3}[)]?[-\\s.]?[0-9]{3}[-\\s.]?[0-9]{4,6}$\n")
-	private String phone;
-	@NotBlank
-	// TOOD : add validation
-	private Type type;
-
-	@Pattern(regexp = "/\\d{4}/g")
-	private String code;
-
-	private Locale locale;
+    @NotBlank
+    private String phone;
+    private Type type;
+    @NotBlank
+    @Pattern(regexp = "\\d{4}")
+    private String code;
+    private Locale locale;
 }

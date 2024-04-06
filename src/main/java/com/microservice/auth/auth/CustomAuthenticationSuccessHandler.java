@@ -22,14 +22,17 @@ public class CustomAuthenticationSuccessHandler extends SavedRequestAwareAuthent
     private String accessTokenHeader;
     @Value("${application.security.jwt.refresh-token-header}")
     private String refreshTokenHeader;
-    @Autowired
     private AuthenticationService service;
+
+    @Autowired
+    public CustomAuthenticationSuccessHandler(AuthenticationService service) {
+        this.service = service;
+    }
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws ServletException, IOException {
         super.onAuthenticationSuccess(request, response, authentication);
-
         SecurityContextHolder.getContext().getAuthentication();
         OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
         OAuth2AuthenticatedPrincipal principal = oauthToken.getPrincipal();

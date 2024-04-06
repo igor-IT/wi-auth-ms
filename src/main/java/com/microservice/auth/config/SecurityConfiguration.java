@@ -78,7 +78,7 @@ public class SecurityConfiguration {
 				.oauth2Login(config -> config
 						.userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService()))
 						.successHandler(savedRequestAwareAuthenticationSuccessHandler())
-						.defaultSuccessUrl("/api/v1/books"))
+						.defaultSuccessUrl("/"))
 		;
 		return http.build();
 	}

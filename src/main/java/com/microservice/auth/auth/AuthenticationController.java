@@ -4,13 +4,16 @@ import com.microservice.auth.exceptions.TooManyRequestException;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.Refill;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
@@ -18,6 +21,8 @@ import java.time.Duration;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Validated
+@Slf4j
 public class AuthenticationController {
 	@Value("${application.security.jwt.access-token-header}")
 	private String accessTokenHeader;
@@ -30,6 +35,7 @@ public class AuthenticationController {
 
 	@Autowired
 	public AuthenticationController(AuthenticationService service) {
+		log.info("AuthenticationController created");
 		this.service = service;
 		Bandwidth limit = Bandwidth.classic(20, Refill.greedy(20, Duration.ofMinutes(1)));
 		this.bucket = Bucket.builder()
@@ -40,7 +46,7 @@ public class AuthenticationController {
 	@PostMapping("/sign-up/by-phone/create-account")
 	@ResponseStatus(HttpStatus.CREATED)
 	public ResponseEntity<AuthenticationResponse> register(
-			@RequestBody RegisterRequest request
+			@Valid @RequestBody RegisterRequest request
 	) {
 		AuthenticationResponse response = service.register(request);
 		HttpHeaders headers = setHttpHeaders(response);
@@ -49,7 +55,7 @@ public class AuthenticationController {
 
 	@PostMapping("/sign-in/by-phone")
 	public ResponseEntity<AuthenticationResponse> authenticate(
-			@RequestBody AuthenticationRequest request
+			@Valid @RequestBody AuthenticationRequest request
 	) {
 		AuthenticationResponse response = service.authenticate(request);
 		HttpHeaders headers = setHttpHeaders(response);
@@ -59,7 +65,7 @@ public class AuthenticationController {
 
 	@PostMapping("/sign-up/by-phone/request-sms-code")
 	@ResponseStatus(HttpStatus.OK)
-	public void requestSMS(@RequestBody SMSCodeRequest request) {
+	public void requestSMS(@Valid @RequestBody SMSCodeRequest request) {
 		if (bucket.tryConsume(1)) {
 			service.requestSMS(request);
 
@@ -70,7 +76,7 @@ public class AuthenticationController {
 
 	@PostMapping("/reset-password/by-phone/request-sms-code")
 	@ResponseStatus(HttpStatus.OK)
-	public void resetPasswordRequest(@RequestBody SMSCodeRequest request) {
+	public void resetPasswordRequest(@Valid @RequestBody SMSCodeRequest request) {
 		if (bucket.tryConsume(1)) {
 			service.requestSMSByReset(request);
 		} else {
@@ -80,7 +86,7 @@ public class AuthenticationController {
 
 	@PostMapping("/reset-password/by-phone/create-password")
 	@ResponseStatus(HttpStatus.OK)
-	public ResponseEntity<AuthenticationResponse> createPassword(@RequestBody CreatePasswordRequest request) {
+	public ResponseEntity<AuthenticationResponse> createPassword(@Valid @RequestBody CreatePasswordRequest request) {
 		if (bucket.tryConsume(1)) {
 			AuthenticationResponse response = service.createPassword(request);
 			HttpHeaders headers = setHttpHeaders(response);
@@ -92,7 +98,7 @@ public class AuthenticationController {
 
 	@PostMapping("/validate-sms-code")
 	@ResponseStatus(HttpStatus.OK)
-	public void validateSMS(@RequestBody ValidateRequest request) {
+	public void validateSMS(@Valid @RequestBody ValidateRequest request) {
 		service.validateSMS(request);
 	}
 
