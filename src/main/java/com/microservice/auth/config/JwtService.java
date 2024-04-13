@@ -1,6 +1,6 @@
 package com.microservice.auth.config;
 
-import com.microservice.auth.user.User;
+import com.microservice.auth.data.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;

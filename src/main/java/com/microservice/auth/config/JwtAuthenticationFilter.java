@@ -1,9 +1,9 @@
 package com.microservice.auth.config;
 
-import com.microservice.auth.token.RefreshToken;
-import com.microservice.auth.token.RefreshTokenRepository;
-import com.microservice.auth.user.User;
-import com.microservice.auth.user.UserRepository;
+import com.microservice.auth.data.RefreshToken;
+import com.microservice.auth.persistence.RefreshTokenRepository;
+import com.microservice.auth.data.User;
+import com.microservice.auth.persistence.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

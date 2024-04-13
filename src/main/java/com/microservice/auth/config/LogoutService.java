@@ -1,6 +1,6 @@
 package com.microservice.auth.config;
 
-import com.microservice.auth.token.RefreshTokenRepository;
+import com.microservice.auth.persistence.RefreshTokenRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;

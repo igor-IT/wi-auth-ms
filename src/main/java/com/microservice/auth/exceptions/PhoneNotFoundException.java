@@ -1,6 +1,6 @@
 package com.microservice.auth.exceptions;
 
-import com.microservice.auth.user.Locale;
+import com.microservice.auth.data.Locale;
 import lombok.Getter;
 
 @Getter

@@ -1,7 +1,6 @@
 package com.microservice.auth.config;
 
-import com.microservice.auth.auditing.ApplicationAuditAware;
-import com.microservice.auth.user.UserRepository;
+import com.microservice.auth.persistence.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

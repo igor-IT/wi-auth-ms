@@ -1,7 +1,8 @@
 package com.microservice.auth.config;
 
-import com.microservice.auth.auth.CustomAuthenticationSuccessHandler;
-import com.microservice.auth.user.*;
+import com.microservice.auth.data.*;
+import com.microservice.auth.persistence.RoleRepository;
+import com.microservice.auth.persistence.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -78,7 +79,7 @@ public class SecurityConfiguration {
 				.oauth2Login(config -> config
 						.userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService()))
 						.successHandler(savedRequestAwareAuthenticationSuccessHandler())
-						.defaultSuccessUrl("/"))
+						.defaultSuccessUrl("/api/v1/users"))
 		;
 		return http.build();
 	}
