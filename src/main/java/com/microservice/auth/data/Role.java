@@ -15,20 +15,16 @@ public class Role {
 
 	@Id
 	private String id;
-	private RoleStatus name;
 	private Set<Permission> permissions;
 
-	public Role(RoleStatus name, Set<Permission> permissions) {
-		this.name = name;
+	public Role(Set<Permission> permissions) {
 		this.permissions = permissions;
 	}
 
 	public List<SimpleGrantedAuthority> getAuthorities() {
-		var authorities = getPermissions()
+		return getPermissions()
 				.stream()
 				.map(permission -> new SimpleGrantedAuthority(permission.getPermission()))
 				.collect(Collectors.toList());
-		authorities.add(new SimpleGrantedAuthority("ROLE_" + this.name));
-		return authorities;
 	}
 }

@@ -52,7 +52,7 @@ public class AuthenticationService {
 	public AuthenticationResponse register(RegisterRequest request) {
 		validateCode(request.getPhone(), request.getLocale());
 
-		Role role = roleRepository.findByName(RoleStatus.USER.name()).orElseThrow();
+		Role role = roleRepository.findById("661a68f87cb7bb79bc96c5c0").orElseThrow();
 		var user = User.builder()
 				.firstname(request.getFirstname())
 				.lastname(request.getLastname())

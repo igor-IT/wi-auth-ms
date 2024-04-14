@@ -36,7 +36,7 @@ import static org.springframework.http.HttpMethod.*;
 @RequiredArgsConstructor
 @EnableMethodSecurity
 public class SecurityConfiguration {
-	private static final String[] WHITE_LIST_URL = {"/api/v1/auth/**",
+	private static final String[] WHITE_LIST_URL = {"/auth/**",
 			"/v2/api-docs",
 			"/v3/api-docs",
 			"/v3/api-docs/**",
@@ -95,7 +95,7 @@ public class SecurityConfiguration {
 
 			Optional<User> existingUser = userRepository.findByEmail(email);
 			UserDetails userDetails = existingUser.orElseGet(() -> {
-				Role role = roleRepository.findByName(RoleStatus.USER.name()).orElseThrow();
+				Role role = roleRepository.findById("661a68f87cb7bb79bc96c5c0").orElseThrow();
 				User newUser = User.builder()
 						.firstname(userRequest.getIdToken().getGivenName())
 						.lastname(userRequest.getIdToken().getFamilyName())

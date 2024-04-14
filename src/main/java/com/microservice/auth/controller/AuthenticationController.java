@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Duration;
 
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("${application.security.jwt.auth-base-url}")
 @RequiredArgsConstructor
 @Validated
 @Slf4j
