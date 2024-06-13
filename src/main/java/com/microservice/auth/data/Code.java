@@ -20,7 +20,8 @@ public class Code {
 	private String id;
 	private String code;
 	private CodeStatus status;
-	private String phone;
+	private ResourceType resource;
+	private String client;
 	@JsonProperty("timestamp")
 	private Date date;
 	private Type type;

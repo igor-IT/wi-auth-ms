@@ -32,9 +32,9 @@ public class AuthenticationControllerAdvice extends ResponseEntityExceptionHandl
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorMessage);
 	}
 
-	@ExceptionHandler(PhoneNotFoundException.class)
+	@ExceptionHandler(PhoneOrEmailNotFoundException.class)
 	@ResponseStatus(HttpStatus.NOT_FOUND)
-	public ResponseEntity<Object> handlePhoneNotFoundException(PhoneNotFoundException e) {
+	public ResponseEntity<Object> handlePhoneNotFoundException(PhoneOrEmailNotFoundException e) {
 		String errorMessage = resolveLocal(e.getLocale(), "error.phoneNotFound");
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorMessage);
 	}

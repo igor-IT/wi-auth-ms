@@ -1,5 +1,6 @@
 package com.microservice.auth.data;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,6 +12,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
+import java.util.Date;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -30,6 +32,13 @@ public class User implements UserDetails {
 	private String password;
 	private Locale locale;
 	private AccountType accountType;
+	private boolean isEnabled;
+	private String imageId;
+	@JsonProperty("timestamp")
+	private Date registrationDate;
+
+	private boolean isPhoneVerified;
+	private boolean isEmailVerified;
 
 	@DBRef
 	private Set<Role> roles;

@@ -76,10 +76,10 @@ public class SecurityConfiguration {
 								.addLogoutHandler(logoutHandler)
 								.logoutSuccessHandler((request, response, authentication) -> SecurityContextHolder.clearContext())
 				)
-				.oauth2Login(config -> config
-						.userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService()))
-						.successHandler(savedRequestAwareAuthenticationSuccessHandler())
-						.defaultSuccessUrl("/api/v1/users"))
+//				.oauth2Login(config -> config
+//						.userInfoEndpoint(userInfo -> userInfo.oidcUserService(oidcUserService()))
+//						.successHandler(savedRequestAwareAuthenticationSuccessHandler())
+//						.defaultSuccessUrl("/api/v1/users"))
 		;
 		return http.build();
 	}

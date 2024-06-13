@@ -7,5 +7,5 @@ import java.util.Optional;
 
 public interface CodeRepository extends MongoRepository<Code, String> {
 
-	Optional<Code> findFirstByPhoneOrderByDateDesc(String phone);
+	Optional<Code> findFirstByClientOrderByDateDesc(String phone);
 }

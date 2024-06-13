@@ -1,5 +1,6 @@
 package com.microservice.auth.config;
 
+import com.microservice.auth.data.User;
 import com.microservice.auth.persistence.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +15,8 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.Optional;
+
 @Configuration
 @RequiredArgsConstructor
 public class ApplicationConfig {
@@ -22,8 +25,15 @@ public class ApplicationConfig {
 
   @Bean
   public UserDetailsService userDetailsService() {
-    return phone -> repository.findByPhone(phone)
-        .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    return usernameOrPhone -> {
+      Optional<User> userByPhone = repository.findByPhone(usernameOrPhone);
+      if (userByPhone.isPresent()) {
+        return userByPhone.get();
+      } else {
+        return repository.findByEmail(usernameOrPhone)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+      }
+    };
   }
 
   @Bean

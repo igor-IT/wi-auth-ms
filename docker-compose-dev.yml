@@ -55,7 +55,6 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./grafana:/var/lib/grafana
       - ./spring-metrics/config/grafana/provisioning:/etc/grafana/provisioning
     environment:
       - GF_SECURITY_ADMIN_USER=admin
@@ -71,7 +70,6 @@ services:
       - "9090:9090"
     volumes:
       - ./spring-metrics/config/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./prometheus:/prometheus
     networks:
       monitoring:
         aliases:

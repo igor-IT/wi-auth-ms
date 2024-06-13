@@ -1,24 +1,19 @@
 package com.microservice.auth.request;
 
-import com.microservice.auth.data.Type;
 import com.microservice.auth.data.Locale;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ValidateRequest {
+public class EmailCodeRequest {
     @NotBlank
-    private String clientIdentifier;
-    private Type type;
-    @NotBlank
-    @Pattern(regexp = "\\d{4}")
-    private String code;
+    @Pattern(regexp = "^[A-Za-z0-9+_.-]+@(.+)$")
+    private String email;
     private Locale locale;
+    private String type;
 }

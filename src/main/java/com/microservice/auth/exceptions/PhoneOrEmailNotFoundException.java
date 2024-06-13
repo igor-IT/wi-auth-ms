@@ -4,9 +4,9 @@ import com.microservice.auth.data.Locale;
 import lombok.Getter;
 
 @Getter
-public class PhoneNotFoundException extends BaseException {
+public class PhoneOrEmailNotFoundException extends BaseException {
 
-	public PhoneNotFoundException(Locale locale) {
+	public PhoneOrEmailNotFoundException(Locale locale) {
 		super(locale);
 	}
 }

@@ -3,7 +3,7 @@ package com.microservice.auth.service;
 import com.microservice.auth.config.JwtService;
 import com.microservice.auth.data.*;
 import com.microservice.auth.exceptions.InvalidCodeException;
-import com.microservice.auth.exceptions.PhoneNotFoundException;
+import com.microservice.auth.exceptions.PhoneOrEmailNotFoundException;
 import com.microservice.auth.exceptions.UserAlreadyExistException;
 import com.microservice.auth.exceptions.UserNotExistException;
 import com.microservice.auth.persistence.*;
@@ -33,7 +33,7 @@ public class AuthenticationService {
 	private final RefreshTokenRepository refreshTokenRepository;
 	private final RoleRepository roleRepository;
 	private final CodeRepository codeRepository;
-	private final UserRepository userRepository;
+	//private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
 	private final AuthenticationManager authenticationManager;
@@ -49,15 +49,23 @@ public class AuthenticationService {
 		log.info("User`s token have been saved");
 	}
 
-	public AuthenticationResponse register(RegisterRequest request) {
-		validateCode(request.getPhone(), request.getLocale());
+	public AuthenticationResponse registerByPhone(RegisterRequestByPhone request) {
+		if (null == request.getPhone() || request.getPhone().isBlank()){
+			throw new IllegalArgumentException("Phone cannot be null or blank");
+		}
+		validateCodeByPhone(request.getPhone(), request.getLocale());
 
 		Role role = roleRepository.findById("661a68f87cb7bb79bc96c5c0").orElseThrow();
 		var user = User.builder()
 				.firstname(request.getFirstname())
 				.lastname(request.getLastname())
-				.email(request.getEmail())
+				.email(null)
 				.phone(request.getPhone())
+				.imageId(request.getMediaPhotoId())
+				.isEnabled(true)
+				.isPhoneVerified(true)
+				.isEmailVerified(false)
+				.registrationDate(new Date())
 				.password(passwordEncoder.encode(request.getPassword()))
 				.locale(request.getLocale())
 				.roles(new HashSet<>(List.of(role)))
@@ -68,17 +76,44 @@ public class AuthenticationService {
 		return generateTokens(user);
 	}
 
-	public AuthenticationResponse createPassword(CreatePasswordRequest request) {
-		validateCode(request.getPhone(), request.getLocale());
-		var user = userRepository.findByPhone(request.getPhone())
-				.orElseThrow(() -> new UserNotExistException(request.getLocale()));
-		user.setPassword(passwordEncoder.encode(request.getPassword()));
+	public AuthenticationResponse registerByEmail(RegisterRequestByEmail request) {
+		if (null == request.getEmail() || request.getEmail().isBlank()){
+			throw new IllegalArgumentException("Email cannot be null or blank");
+		}
+		validateCodeByEmail(request.getEmail(), request.getLocale());
+
+		//Role role = roleRepository.findById("661a68f87cb7bb79bc96c5c0").orElseThrow();
+		var user = User.builder()
+				.firstname(request.getFirstname())
+				.lastname(request.getLastname())
+				.email(request.getEmail())
+				.phone(null)
+				.imageId(request.getMediaPhotoId())
+				.isEnabled(true)
+				.isPhoneVerified(false)
+				.isEmailVerified(true)
+				.registrationDate(new Date())
+				.password(passwordEncoder.encode(request.getPassword()))
+				.locale(request.getLocale())
+				.roles(new HashSet<>(new ArrayList<>()))
+				.accountType(request.getAccountType())
+				.build();
 		repository.save(user);
-		log.info("For user {} created and save password", user.getId());
+		log.info("User {} registered", user.getId());
 		return generateTokens(user);
 	}
 
-	public AuthenticationResponse authenticate(AuthenticationRequest request) {
+//	public AuthenticationResponse createPassword(CreatePasswordRequest request) {
+//		validateCode(request.getPhone(), request.getLocale());
+//		var user = repository.findByPhone(request.getPhone())
+//				.orElseThrow(() -> new UserNotExistException(request.getLocale()));
+//		user.setPassword(passwordEncoder.encode(request.getPassword()));
+//		repository.save(user);
+//		log.info("For user {} created and save password", user.getId());
+//		return generateTokens(user);
+//	}
+
+	public AuthenticationResponse authenticateByPhone(AuthenticationRequestByPhone request) {
 		authenticationManager.authenticate(
 				new UsernamePasswordAuthenticationToken(
 						request.getPhone(),
@@ -86,6 +121,26 @@ public class AuthenticationService {
 				)
 		);
 		var user = repository.findByPhone(request.getPhone())
+				.orElseThrow();
+		var jwtToken = jwtService.generateToken(user);
+		var refreshToken = jwtService.generateRefreshToken(user);
+		revokeAllUserTokens(user);
+		saveUserToken(user, refreshToken);
+		log.info("User {} authenticated", user.getId());
+		return AuthenticationResponse.builder()
+				.accessToken(jwtToken)
+				.refreshToken(refreshToken)
+				.build();
+	}
+
+	public AuthenticationResponse authenticateByEmail(AuthenticationRequestByEmail request) {
+		authenticationManager.authenticate(
+				new UsernamePasswordAuthenticationToken(
+						request.getEmail(),
+						request.getPassword()
+				)
+		);
+		var user = repository.findByEmail(request.getEmail())
 				.orElseThrow();
 		var jwtToken = jwtService.generateToken(user);
 		var refreshToken = jwtService.generateRefreshToken(user);
@@ -111,13 +166,23 @@ public class AuthenticationService {
 				.build();
 	}
 
-	public void requestSMS(SMSCodeRequest request) {
+	public void requestCodeSMS(SMSCodeRequest request) {
 		String phone = request.getPhone();
 		if (repository.existsByPhone(phone)) {
 			log.warn("User with phone {} already exist", phone);
 			throw new UserAlreadyExistException(request.getLocale());
 		} else {
-			buildCode(phone, Type.REGISTRATION, request);
+			buildCode(phone, Type.REGISTRATION, request, null);
+		}
+	}
+
+	public void requestCodeEmail(EmailCodeRequest request) {
+		String email = request.getEmail();
+		if (repository.existsByEmail(email)) {
+			log.warn("User with email {} already exist", email);
+			throw new UserAlreadyExistException(request.getLocale());
+		} else {
+			buildCode(email, Type.REGISTRATION, null,request);
 		}
 	}
 
@@ -127,12 +192,12 @@ public class AuthenticationService {
 			log.warn("User with phone {} does not exist", phone);
 			throw new UserNotExistException(request.getLocale());
 		} else {
-			buildCode(phone, Type.valueOf(request.getType()), request);
+			buildCode(phone, Type.valueOf(request.getType()), request, null);
 		}
 	}
 
-	public void validateSMS(ValidateRequest request) {
-		codeRepository.findFirstByPhoneOrderByDateDesc(request.getPhone())
+	public void validateCode(ValidateRequest request) {
+		codeRepository.findFirstByClientOrderByDateDesc(request.getClientIdentifier())
 				.map(code -> {
 					if (!Objects.equals(code.getCode(), request.getCode())) {
 						log.warn("Code in db does not equal with code in request");
@@ -143,21 +208,38 @@ public class AuthenticationService {
 					log.info("Code {} has been successfully validated", code.getCode());
 					return codeRepository.save(code);
 				})
-				.orElseThrow(() -> new PhoneNotFoundException(request.getLocale()));
+				.orElseThrow(() -> new PhoneOrEmailNotFoundException(request.getLocale()));
 	}
 
-	private void buildCode(String phone, Type type, SMSCodeRequest request) {
-		var code = Code.builder()
-				.status(CodeStatus.CREATED)
-				.code(String.format("%04d", new Random().nextInt(10000)))
-				.phone(phone)
-				.type(type)
-				.date(new Date())
-				.build();
-		codeRepository.save(code);
-		log.info("Code {} created", code.getId());
-		streamBridge.send("code-topic", new CodeSendEvent(code.getCode(), request.getLocale()));
-		log.info("Message sent to code-topic");
+	private void buildCode(String client, Type type, SMSCodeRequest smsCodeRequest,EmailCodeRequest emailCodeRequest) {
+		if (null != smsCodeRequest){
+			var code = Code.builder()
+					.status(CodeStatus.CREATED)
+					.code(String.format("%04d", new Random().nextInt(10000)))
+					.resource(ResourceType.PHONE)
+					.client(client)
+					.type(type)
+					.date(new Date())
+					.build();
+			codeRepository.save(code);
+			log.info("Code {} created", code.getId());
+			streamBridge.send("code-topic", new CodeSendEvent(code.getCode(), smsCodeRequest.getLocale()));
+			log.info("Message sent to code-topic");
+		}
+		else if (null != emailCodeRequest){
+			Code code = Code.builder()
+                    .status(CodeStatus.CREATED)
+                    .code(String.format("%04d", new Random().nextInt(10000)))
+					.resource(ResourceType.EMAIL)
+                    .client(client)
+                    .type(type)
+                    .date(new Date())
+                    .build();
+            codeRepository.save(code);
+            log.info("Code {} created", code.getId());
+            streamBridge.send("code-topic", new CodeSendEvent(code.getCode(), emailCodeRequest.getLocale()));
+            log.info("Message sent to code-topic");
+		}
 	}
 
 	private AuthenticationResponse generateTokens(User user) {
@@ -171,9 +253,20 @@ public class AuthenticationService {
 				.build();
 	}
 
-	private void validateCode(String phone, Locale locale) {
-		Code code = codeRepository.findFirstByPhoneOrderByDateDesc(phone)
-				.orElseThrow(() -> new PhoneNotFoundException(locale));
+	private void validateCodeByPhone(String phone, Locale locale) {
+		Code code = codeRepository.findFirstByClientOrderByDateDesc(phone)
+				.orElseThrow(() -> new PhoneOrEmailNotFoundException(locale));
+		if (code.getStatus() != VALIDATED) {
+			log.warn("Code status is not VALIDATED");
+			throw new InvalidCodeException(locale);
+		}
+		code.setStatus(USED);
+		codeRepository.save(code);
+	}
+
+	private void validateCodeByEmail(String email, Locale locale) {
+		Code code = codeRepository.findFirstByClientOrderByDateDesc(email)
+				.orElseThrow(() -> new PhoneOrEmailNotFoundException(locale));
 		if (code.getStatus() != VALIDATED) {
 			log.warn("Code status is not VALIDATED");
 			throw new InvalidCodeException(locale);
